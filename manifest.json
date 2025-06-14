@@ -2,7 +2,7 @@
     "name": "The Green Book | Bet Tracker",
     "short_name": "Green Book",
     "description": "Track your sports bets and manage your bankroll offline.",
-    "start_url": "/Gamble/",
+    "start_url": "/",
     "display": "standalone",
     "background_color": "#121212",
     "theme_color": "#2e7d32",
@@ -14,4 +14,3 @@
         }
     ]
 }
-s
