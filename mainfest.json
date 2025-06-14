@@ -1,0 +1,17 @@
+{
+    "name": "The Green Book | Bet Tracker",
+    "short_name": "Bet Tracker",
+    "description": "Track your sports bets and manage your bankroll offline.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#121212",
+    "theme_color": "#2e7d32",
+    "icons": [
+        {
+            "src": "icon.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
+s
