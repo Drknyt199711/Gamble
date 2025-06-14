@@ -1,10 +1,10 @@
 const CACHE_NAME = 'green-book-bet-tracker-v1';
 const urlsToCache = [
     '/',
-    '/index.html',
-    '/manifest.json',
-    '/sw.js',
-    '/icon.png',
+    'index.html',
+    'manifest.json',
+    'sw.js',
+    'icon.png',
     'https://cdn.jsdelivr.net/npm/chart.js'
 ];
 
