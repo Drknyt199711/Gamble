@@ -569,6 +569,71 @@
         #projection .full-width-input {
             grid-column: 1 / -1;
         }
+        
+        /* Import/Export styles */
+        .import-export-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .import-section, .export-section {
+            flex: 1;
+            padding: 15px;
+            background-color: var(--card-color);
+            border-radius: 8px;
+        }
+        
+        .import-section h3, .export-section h3 {
+            margin-bottom: 10px;
+            color: var(--primary-light);
+        }
+        
+        .import-instructions {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: rgba(255,255,255,0.05);
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .light-mode .import-instructions {
+            background-color: rgba(0,0,0,0.05);
+        }
+        
+        .import-instructions ul {
+            padding-left: 20px;
+            margin: 10px 0;
+        }
+        
+        .import-instructions li {
+            margin-bottom: 5px;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            margin: 15px 0;
+        }
+        
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+        
+        .file-input-label {
+            display: block;
+            padding: 10px;
+            background-color: var(--primary-color);
+            color: white;
+            text-align: center;
+            border-radius: 5px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="dark-mode">
@@ -654,8 +719,8 @@
                         </div>
                         <div class="fixed-buttons">
                             <button id="deleteSelectedBtn" class="danger">Delete Selected</button>
-                            <button id="importBtn" class="secondary2">Import Bets</button>
                             <button id="exportBtn" class="secondary2">Export as CSV</button>
+                            <button id="importBtn" class="secondary2">Import from CSV</button>
                         </div>
                     </div>
                 </div>
@@ -749,10 +814,13 @@
             </div>
         </div>
     </div>
+    
+    <!-- Hidden file input for CSV import -->
+    <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-                // Register service worker
+        // Register service worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
@@ -789,6 +857,7 @@
         const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
         const toggleFiltersBtn = document.getElementById('toggleFiltersBtn');
         const filtersDropdownContent = document.getElementById('filtersDropdownContent');
+        const csvFileInput = document.getElementById('csvFileInput');
 
         // Initialize
         if (localStorage.getItem('theme') === 'light') {
@@ -948,7 +1017,7 @@
                 const actionsCell = document.createElement('td');
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = 'Delete';
-                deleteButton.className = 'danger small-button'; // Added small-button class for styling
+                deleteButton.className = 'danger small-button';
                 deleteButton.onclick = () => displayConfirmationBox('Are you sure you want to delete this bet?', () => {
                     const betToDelete = bets[originalIndex];
                     if (betToDelete && betToDelete.outcome !== 'pending' && betToDelete.outcome !== 'void') {
@@ -960,10 +1029,9 @@
                 });
                 actionsCell.appendChild(deleteButton);
 
-                // Add an edit button
                 const editButton = document.createElement('button');
                 editButton.textContent = 'Edit';
-                editButton.className = 'secondary2 small-button'; // Added small-button class for styling
+                editButton.className = 'secondary2 small-button';
                 editButton.onclick = () => editBet(originalIndex);
                 actionsCell.appendChild(editButton);
 
@@ -1082,11 +1150,10 @@
         }
 
         async function exportBetsToCSV() {
-            const headers = "Date,Sport,Event,Stake,Odds,Outcome,Profit/Loss\n";
+            const headers = "Date (ISO),Sport,Event,Stake,Odds,Outcome,Profit/Loss\n";
             const csvRows = bets.map(bet => {
-                const date = formatDate(bet.date);
                 const profitLoss = calculateProfit(bet).toFixed(2);
-                return `${date},"${bet.sport}","${bet.event}",${bet.stake.toFixed(2)},${bet.odds.toFixed(2)},${bet.outcome},${profitLoss}`;
+                return `${bet.date},"${bet.sport}","${bet.event}",${bet.stake.toFixed(2)},${bet.odds.toFixed(2)},${bet.outcome},${profitLoss}`;
             });
             const csvContent = headers + csvRows.join('\n');
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1097,123 +1164,6 @@
             link.click();
             document.body.removeChild(link);
             displayMessageBox('Bet history exported to CSV!', "success");
-        }
-
-        function importBetsFromCSV() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.csv';
-            input.onchange = async (e) => {
-                const file = e.target.files[0];
-                if (!file) {
-                    return;
-                }
-                const reader = new FileReader();
-                reader.onload = async (event) => {
-                    const csvContent = event.target.result;
-                    try {
-                        const importedBets = parseCSV(csvContent);
-                        // Ask user how to import
-                        displayMessageBox('Choose import method:', 'prompt-options', [
-                            {
-                                text: 'Append (add to existing)',
-                                handler: () => {
-                                    bets = [...bets, ...importedBets];
-                                    saveData();
-                                    updateUI('all');
-                                    displayMessageBox('Bets appended successfully!', "success");
-                                }
-                            },
-                            {
-                                text: 'Overwrite (replace existing)',
-                                handler: () => {
-                                    displayConfirmationBox('Are you sure you want to overwrite all existing bets? This cannot be undone.', () => {
-                                        bets = importedBets;
-                                        bankroll = 1000; // Reset bankroll on overwrite
-                                        saveData();
-                                        updateUI('all');
-                                        displayMessageBox('Bets overwritten successfully!', "success");
-                                    });
-                                }
-                            }
-                        ]);
-                    } catch (error) {
-                        displayMessageBox(`Error importing CSV: ${error.message}`, "error");
-                        console.error("Error importing CSV:", error);
-                    }
-                };
-                reader.readAsText(file);
-            };
-            input.click();
-        }
-
-        function parseCSV(csvString) {
-            const lines = csvString.trim().split('\n');
-            if (lines.length === 0) {
-                return [];
-            }
-            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-            const parsedBets = [];
-            for (let i = 1; i < lines.length; i++) {
-                const values = parseCSVLine(lines[i]);
-                if (values.length !== headers.length) {
-                    console.warn(`Skipping malformed row: ${lines[i]}`);
-                    continue; // Skip rows that don't match header count
-                }
-                const bet = {};
-                headers.forEach((header, index) => {
-                    let value = values[index];
-                    // Clean up potential quotes from CSV
-                    if (typeof value === 'string' && value.startsWith('"') && value.endsWith('"')) {
-                        value = value.substring(1, value.length - 1);
-                    }
-
-                    switch (header) {
-                        case 'date':
-                            bet.date = new Date(value).toISOString();
-                            break;
-                        case 'stake':
-                        case 'odds':
-                        case 'profit/loss': // This is a calculated field, not an input field, so handle with care
-                            bet[header] = parseFloat(value);
-                            break;
-                        case 'sport':
-                        case 'event':
-                        case 'outcome':
-                            bet[header] = value;
-                            break;
-                        default:
-                            bet[header] = value;
-                    }
-                });
-                // Ensure all required fields are present and valid, if not, skip this row
-                if (!bet.date || isNaN(bet.stake) || isNaN(bet.odds) || !bet.sport || !bet.event || !bet.outcome) {
-                    console.warn(`Skipping row due to missing/invalid data: ${lines[i]}`);
-                    continue;
-                }
-                parsedBets.push(bet);
-            }
-            return parsedBets;
-        }
-
-        // Helper function to parse a single CSV line, handling commas within quoted fields
-        function parseCSVLine(line) {
-            const result = [];
-            let inQuote = false;
-            let currentField = '';
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                if (char === '"') {
-                    inQuote = !inQuote;
-                } else if (char === ',' && !inQuote) {
-                    result.push(currentField.trim());
-                    currentField = '';
-                } else {
-                    currentField += char;
-                }
-            }
-            result.push(currentField.trim()); // Add the last field
-            return result;
         }
 
         // Event Listeners
@@ -1290,7 +1240,100 @@
         });
 
         exportBtn.addEventListener('click', exportBetsToCSV);
-        importBtn.addEventListener('click', importBetsFromCSV);
+
+        // Import CSV functionality
+        importBtn.addEventListener('click', () => {
+            csvFileInput.click();
+        });
+
+        csvFileInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const csvData = e.target.result;
+                    const importedBets = parseCSV(csvData);
+                    
+                    if (importedBets.length === 0) {
+                        displayMessageBox('No valid bets found in the CSV file.', 'error');
+                        return;
+                    }
+                    
+                    displayConfirmationBox(
+                        `Found ${importedBets.length} valid bets. Import them?`,
+                        () => {
+                            const totalProfit = importedBets.reduce((sum, bet) => {
+                                if (bet.outcome === 'win' || bet.outcome === 'loss') {
+                                    return sum + calculateProfit(bet);
+                                }
+                                return sum;
+                            }, 0);
+                            
+                            // Add imported bets
+                            bets = [...importedBets, ...bets];
+                            
+                            // Adjust bankroll for settled bets
+                            bankroll += totalProfit;
+                            
+                            saveData();
+                            updateUI('all');
+                            displayMessageBox(`Successfully imported ${importedBets.length} bets!`, 'success');
+                        }
+                    );
+                } catch (error) {
+                    console.error('CSV import error:', error);
+                    displayMessageBox('Failed to import CSV file. Please check the format.', 'error');
+                }
+            };
+            reader.readAsText(file);
+            
+            // Reset file input
+            event.target.value = '';
+        });
+
+        // Parse CSV data
+        function parseCSV(csvData) {
+            const rows = csvData.split('\n').filter(row => row.trim() !== '');
+            const importedBets = [];
+            
+            // Skip header row
+            for (let i = 1; i < rows.length; i++) {
+                try {
+                    const columns = rows[i].split(',');
+                    
+                    // Basic validation
+                    if (columns.length < 7) continue;
+                    
+                    const date = columns[0].trim();
+                    const sport = columns[1].trim();
+                    const event = columns[2].trim();
+                    const stake = parseFloat(columns[3].trim());
+                    const odds = parseFloat(columns[4].trim());
+                    const outcome = columns[5].trim();
+                    
+                    // Skip invalid rows
+                    if (!sport || !event || isNaN(stake) || stake <= 0 || 
+                        isNaN(odds) || odds < 1 || !['pending', 'win', 'loss', 'void'].includes(outcome)) {
+                        continue;
+                    }
+                    
+                    importedBets.push({
+                        date: new Date(date).toISOString() || new Date().toISOString(),
+                        sport,
+                        event,
+                        stake,
+                        odds,
+                        outcome
+                    });
+                } catch (e) {
+                    console.warn('Skipping invalid CSV row:', rows[i]);
+                }
+            }
+            
+            return importedBets;
+        }
 
         themeToggle.addEventListener('click', () => {
             if (document.body.classList.contains('dark-mode')) {
@@ -1315,7 +1358,6 @@
             });
         });
         deleteSelectedBtn.addEventListener('click', deleteSelectedBets);
-
 
         // Custom Alert/Confirmation/Prompt Boxes
         function displayMessageBox(message, type = 'info', options = null) {
@@ -1407,7 +1449,7 @@
                 options.forEach(option => {
                     const btn = document.createElement('button');
                     btn.textContent = option.text;
-                    btn.className = 'button'; // Use existing button style
+                    btn.className = 'button';
                     btn.onclick = () => {
                         option.handler();
                         box.remove();
@@ -1478,7 +1520,6 @@
             displayMessageBox(message, 'prompt', { title: title, handler: onConfirm });
         }
 
-
         // Edit bet function
         function editBet(originalIndex) {
             const bet = bets[originalIndex];
@@ -1501,7 +1542,7 @@
             `;
 
             const editCard = document.createElement('div');
-            editCard.className = 'card'; // Reuse card style
+            editCard.className = 'card';
             editCard.style.cssText = `
                 padding: 20px;
                 width: 90%;
@@ -1672,8 +1713,6 @@
         // Add event listener for projection tab activation
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
-                // ... existing tab switching code ...
-                
                 if (tab.dataset.tab === 'projection') {
                     // Set initial bankroll to current bankroll when projection tab is activated
                     document.getElementById('initialBankroll').value = bankroll.toFixed(2);
